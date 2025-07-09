@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">OKQuizMe</string>
+    <string name="next_card">Next Card</string>
+    <string name="flip_card">Flip Card</string>
+    <string name="upload_to_begin">Upload to begin</string>
+    <string name="upload_flashcards">Upload Flashcards</string>
+    <string name="toggle_dark_mode">Toggle Dark Mode</string>
+    <string name="study_again">Study Again</string>
+    <string name="reshuffle_cards">Reshuffle Cards</string>
+    <string name="mark_as_known">Mark as Known</string>
+    <string name="flashcard_text">Flashcard Text</string>
+    <string name="card_1_1">Card 1 / 1</string>
+    <string name="unknown_0">Unknown: 0</string>
+    <string name="known_0">Known: 0</string>
+    <string name="study_remaining_cards">Study Remaining Cards</string>
+    <string name="quiz_opposite_sides">Quiz Opposite Sides</string>
+    <string name="deck_complete">Deck Complete</string>
+</resources>

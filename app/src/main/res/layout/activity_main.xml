@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:gravity="center_horizontal">
+    <!-- Known / Unknown counts -->
+    <!-- Known / Unknown counts bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingBottom="8dp">
+
+        <!-- Known count takes up half the width -->
+        <TextView
+            android:id="@+id/tvKnownCount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/known_0"
+            android:textColor="#00C853"
+            android:textStyle="bold"/>
+
+        <!-- Unknown count takes up the other half, text aligned right -->
+        <TextView
+            android:id="@+id/tvUnknownCount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="end"
+            android:text="@string/unknown_0"
+            android:textColor="#D50000"
+            android:textStyle="bold"/>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvCardTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/card_1_1"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btnDarkMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="@string/toggle_dark_mode" />
+
+    <Button
+        android:id="@+id/btnUpload"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/upload_flashcards"
+        android:layout_marginBottom="24dp"/>
+
+    <TextView
+        android:id="@+id/tvFlashcard"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:textSize="75sp"
+        android:text="@string/flashcard_text"
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp"
+        android:clickable="true"
+        android:focusable="true"/>
+    <!-- Normal nav buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="24dp">
+
+        <Button
+            android:id="@+id/btnKnown"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/mark_as_known"/>
+
+        <Button
+            android:id="@+id/btnFlip"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/flip_card"/>
+
+        <Button
+            android:id="@+id/btnNext"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/next_card"/>
+    </LinearLayout>
+
+    <!-- End-of-deck buttons (initially hidden) -->
+    <Button
+        android:id="@+id/btnStudyAgainShuffle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/reshuffle_cards"
+        android:visibility="gone"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btnStudyRemaining"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/study_remaining_cards"
+        android:visibility="gone"/>
+    <!-- Quiz Opposite Sides (initially hidden) -->
+    <Button
+        android:id="@+id/btnReverseQuiz"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/quiz_opposite_sides"
+        android:visibility="gone"
+        android:layout_marginTop="8dp"/>
+
+
+</LinearLayout>
