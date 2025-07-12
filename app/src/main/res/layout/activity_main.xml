@@ -7,7 +7,6 @@
     android:padding="16dp"
     android:gravity="center_horizontal">
     <!-- Known / Unknown counts -->
-    <!-- Known / Unknown counts bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -35,7 +34,15 @@
             android:textColor="#D50000"
             android:textStyle="bold"/>
     </LinearLayout>
-
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_marginTop="8dp"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="@android:color/holo_blue_light"/>
     <TextView
         android:id="@+id/tvCardTitle"
         android:layout_width="wrap_content"
@@ -65,7 +72,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:gravity="center"
-        android:textSize="75sp"
+        android:textSize="70sp"
         android:text="@string/flashcard_text"
         android:textStyle="bold"
         android:layout_marginBottom="24dp"
@@ -101,6 +108,14 @@
     </LinearLayout>
 
     <!-- End-of-deck buttons (initially hidden) -->
+    <Spinner
+        android:id="@+id/spinnerDecks"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:layout_marginTop="16dp"
+        android:backgroundTint="@android:color/darker_gray" />
+
     <Button
         android:id="@+id/btnStudyAgainShuffle"
         android:layout_width="match_parent"

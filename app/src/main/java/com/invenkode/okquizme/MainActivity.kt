@@ -17,6 +17,11 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.gson.Gson
 import java.util.Locale
+import android.widget.ProgressBar
+import android.widget.Spinner
+import android.widget.ArrayAdapter
+import android.widget.AdapterView
+
 
 
 class MainActivity : AppCompatActivity() {
@@ -37,12 +42,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnStudyRemaining: Button
     private lateinit var btnReverseQuiz: Button
     private var isReversedMode = false
+    private lateinit var progressBar: ProgressBar
+    private lateinit var spinnerDecks: Spinner
+
+
 
 
     private var flashcards = listOf<Flashcard>()
     private var currentIndex = 0
     private var showingFront = true
     private val knownCards = mutableSetOf<Int>()
+    private var hasAdvanced = false
+
 
     private lateinit var tts: TextToSpeech
 
@@ -67,6 +78,9 @@ class MainActivity : AppCompatActivity() {
         btnStudyAgainShuffle  = findViewById(R.id.btnStudyAgainShuffle)
         btnStudyRemaining     = findViewById(R.id.btnStudyRemaining)
         btnReverseQuiz        = findViewById(R.id.btnReverseQuiz)
+        progressBar           = findViewById(R.id.progressBar)
+        spinnerDecks          = findViewById(R.id.spinnerDecks)
+
 
         // Text-to-speech init
         tts = TextToSpeech(this) { status ->
@@ -123,6 +137,7 @@ class MainActivity : AppCompatActivity() {
             knownCards.clear()
             currentIndex = 0
             showingFront = true
+            hasAdvanced = false
             updateFlashcard()
         }
 
@@ -133,6 +148,7 @@ class MainActivity : AppCompatActivity() {
             knownCards.clear()
             currentIndex = 0
             showingFront = true
+            hasAdvanced = false
             updateFlashcard()
         }
 
@@ -142,25 +158,58 @@ class MainActivity : AppCompatActivity() {
             knownCards.clear()
             currentIndex = 0
             showingFront = true
+            hasAdvanced = false
             updateFlashcard()
         }
+
+        val deckName = sharedPrefs.getString("current_deck", null)
+        deckName?.let {
+            sharedPrefs.getString("cards_json_$it", null)?.let { json ->
+                flashcards = Gson().fromJson(json, Array<Flashcard>::class.java).toList()
+            }
+        }
+
+        spinnerDecks.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val deckName = parent?.getItemAtPosition(position) as? String ?: return
+                val deckJson = sharedPrefs.getString("cards_json_$deckName", null) ?: return
+
+                flashcards = Gson().fromJson(deckJson, Array<Flashcard>::class.java).toList().shuffled()
+                sharedPrefs.edit().putString("current_deck", deckName).apply()
+                knownCards.clear()
+                currentIndex = 0
+                showingFront = true
+                isReversedMode = false
+                updateFlashcard()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CODE_PICK_FILE && resultCode == Activity.RESULT_OK) {
-            data?.data?.let { uri ->
-                val text = contentResolver.openInputStream(uri)
-                    ?.bufferedReader().use { it?.readText() ?: "" }
-                flashcards = parseFlashcards(text).shuffled()
-                getSharedPreferences("flashcards", MODE_PRIVATE)
-                    .edit()
-                    .putString("cards_json", Gson().toJson(flashcards))
-                    .apply()
-                knownCards.clear()
-                currentIndex = 0
-                showingFront = true
-                updateFlashcard()
+        data?.data?.let { uri ->
+            val deckName = uri.lastPathSegment?.substringAfterLast("/") ?: "deck"
+            sharedPrefs.edit().putString("current_deck", deckName).apply()
+            sharedPrefs.edit().putString("cards_json_$deckName", Gson().toJson(flashcards)).apply()
+
+            if (requestCode == REQUEST_CODE_PICK_FILE && resultCode == Activity.RESULT_OK) {
+                data?.data?.let { uri ->
+                    val text = contentResolver.openInputStream(uri)
+                        ?.bufferedReader().use { it?.readText() ?: "" }
+                    flashcards = parseFlashcards(text).shuffled()
+                    getSharedPreferences("flashcards", MODE_PRIVATE)
+                        .edit()
+                        .putString("cards_json", Gson().toJson(flashcards))
+                        .apply()
+                    knownCards.clear()
+                    currentIndex = 0
+                    showingFront = true
+                    updateFlashcard()
+                }
             }
         }
     }
@@ -176,21 +225,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun goToNextCard() {
         if (flashcards.isEmpty()) return
-        if (isEndOfDeck()) {
-            // already at end, no-op
+
+        // 1) If there are still cards _ahead_, advance and show it:
+        if (currentIndex < flashcards.size - 1) {
+            currentIndex++
+            showingFront = true
+            updateFlashcard()
             return
         }
-        var attempts = 0
-        do {
-            currentIndex = (currentIndex + 1) % flashcards.size
-            attempts++
-        } while (
-            currentIndex in knownCards &&
-            knownCards.size < flashcards.size &&
-            attempts < flashcards.size
-        )
-        showingFront = true
-        updateFlashcard()
+
+        // 2) Otherwise, you were on the final card and tapped Next → show complete UI:
+        val unknownLeft = flashcards.size - knownCards.size
+        tvCardTitle.text   = "Deck Complete"
+        tvFlashcard.text   = "🔔 Deck Complete!\nUnknown left: $unknownLeft"
+        updateCounts()
+        showEndButtons()
     }
 
     private fun animateFlashcardFlip(newText: String) {
@@ -213,35 +262,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateFlashcard() {
         updateCounts()
-
         if (flashcards.isEmpty()) {
+            tvCardTitle.text = ""
             tvFlashcard.text = "No cards loaded."
             showNormalButtons()
             return
         }
 
-        if (isEndOfDeck()) {
-            val unknownCount = flashcards.size - knownCards.size
-            tvCardTitle.text = "Deck Complete"
-            tvFlashcard.text = "🔔 Deck Complete!\nUnknown left: $unknownCount"
-            showEndButtons()
+        // Always show the card text:
+        val card     = flashcards[currentIndex]
+        val front    = if (isReversedMode) card.back else card.front
+        val back     = if (isReversedMode) card.front else card.back
+        val newText  = if (showingFront) front else back
+
+        animateFlashcardFlip(newText)
+        tvCardTitle.text = "Card ${currentIndex + 1} / ${flashcards.size}"
+        showNormalButtons()
+        tts.speak(newText, TextToSpeech.QUEUE_FLUSH, null, null)
+
+        if (flashcards.isNotEmpty() && !isEndOfDeck()) {
+            val progress = ((currentIndex + 1).toFloat() / flashcards.size * 100).toInt()
+            progressBar.progress = progress
         } else {
-            // pick the raw card
-            val card = flashcards[currentIndex]
-            // depending on reversed flag, define the “front” and “back”
-            val frontText = if (isReversedMode) card.back else card.front
-            val backText  = if (isReversedMode) card.front else card.back
-
-            // choose which side to show
-            val newText = if (showingFront) frontText else backText
-
-            animateFlashcardFlip(newText)
-            tvCardTitle.text = "Card ${currentIndex + 1} / ${flashcards.size}"
-            showNormalButtons()
-            tts.speak(newText, TextToSpeech.QUEUE_FLUSH, null, null)
+            progressBar.progress = 100
         }
-    }
 
+    }
 
     private fun updateCounts() {
         val known   = knownCards.size
@@ -260,6 +306,8 @@ class MainActivity : AppCompatActivity() {
         btnStudyAgainShuffle.visibility  = View.GONE
         btnStudyRemaining.visibility     = View.GONE
         btnReverseQuiz.visibility       = View.GONE
+        spinnerDecks.visibility         = View.GONE
+
     }
 
     private fun showEndButtons() {
@@ -270,6 +318,20 @@ class MainActivity : AppCompatActivity() {
         btnStudyRemaining.visibility     = View.VISIBLE
 
         btnReverseQuiz.visibility       = View.VISIBLE
+        val decks = loadDeckList()
+        if (decks.isNotEmpty()) {
+            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, decks)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerDecks.adapter = adapter
+            spinnerDecks.visibility = View.VISIBLE
+        }
+
+    }
+    private fun loadDeckList(): List<String> {
+        val allPrefs = sharedPrefs.all
+        return allPrefs.keys
+            .filter { it.startsWith("cards_json_") }
+            .map { it.removePrefix("cards_json_") }
     }
 
     private fun applyThemeColors() {
