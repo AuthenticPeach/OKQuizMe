@@ -15,4 +15,8 @@
     <string name="study_remaining_cards">Study Remaining Cards</string>
     <string name="quiz_opposite_sides">Quiz Opposite Sides</string>
     <string name="deck_complete">Deck Complete</string>
+    <string name="toggle_text_mode">Resize Text Mode</string>
+    <string name="no_cards_loaded">No cards loaded.</string>
+    <string name="end_deck_early">End Deck Early</string>
+
 </resources>

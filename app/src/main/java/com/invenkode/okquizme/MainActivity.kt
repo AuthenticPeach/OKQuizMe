@@ -21,6 +21,7 @@ import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
+import androidx.appcompat.app.AlertDialog
 
 
 
@@ -32,7 +33,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvKnownCount: TextView
     private lateinit var tvUnknownCount: TextView
     private lateinit var tvCardTitle: TextView
-    private lateinit var tvFlashcard: TextView
     private lateinit var btnDarkMode: Button
     private lateinit var btnUpload: Button
     private lateinit var btnFlip: Button
@@ -44,17 +44,17 @@ class MainActivity : AppCompatActivity() {
     private var isReversedMode = false
     private lateinit var progressBar: ProgressBar
     private lateinit var spinnerDecks: Spinner
-
-
-
-
+    private lateinit var tvFlashcardScroll: TextView
+    private lateinit var tvFlashcardAuto: TextView
+    private lateinit var btnToggleTextMode: Button
+    private var useScrollMode = true
+    private lateinit var btnEndDeck: Button
     private var flashcards = listOf<Flashcard>()
     private var currentIndex = 0
     private var showingFront = true
     private val knownCards = mutableSetOf<Int>()
     private var hasAdvanced = false
-
-
+    private var isDeckComplete = false
     private lateinit var tts: TextToSpeech
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,7 +69,6 @@ class MainActivity : AppCompatActivity() {
         tvKnownCount          = findViewById(R.id.tvKnownCount)
         tvUnknownCount        = findViewById(R.id.tvUnknownCount)
         tvCardTitle           = findViewById(R.id.tvCardTitle)
-        tvFlashcard           = findViewById(R.id.tvFlashcard)
         btnDarkMode           = findViewById(R.id.btnDarkMode)
         btnUpload             = findViewById(R.id.btnUpload)
         btnFlip               = findViewById(R.id.btnFlip)
@@ -80,6 +79,16 @@ class MainActivity : AppCompatActivity() {
         btnReverseQuiz        = findViewById(R.id.btnReverseQuiz)
         progressBar           = findViewById(R.id.progressBar)
         spinnerDecks          = findViewById(R.id.spinnerDecks)
+        tvFlashcardScroll = findViewById(R.id.tvFlashcardScroll)
+        tvFlashcardAuto  = findViewById(R.id.tvFlashcardAuto)
+        btnToggleTextMode = findViewById(R.id.btnToggleTextMode)
+        btnEndDeck = findViewById(R.id.btnEndDeck)
+        setupEndDeckButton()
+
+        btnToggleTextMode.setOnClickListener {
+            useScrollMode = !useScrollMode
+            updateFlashcard() // Re-render current card
+        }
 
 
         // Text-to-speech init
@@ -110,33 +119,45 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(intent, REQUEST_CODE_PICK_FILE)
         }
 
-        tvFlashcard.setOnClickListener {
-            // only flip if we have cards and we're not on the end screen
+        tvFlashcardScroll.setOnClickListener {
             if (flashcards.isNotEmpty() && !isEndOfDeck()) {
                 showingFront = !showingFront
                 updateFlashcard()
             }
         }
+
+        tvFlashcardAuto.setOnClickListener {
+            if (flashcards.isNotEmpty() && !isEndOfDeck()) {
+                showingFront = !showingFront
+                updateFlashcard()
+            }
+        }
+
 
         btnFlip.setOnClickListener {
             if (flashcards.isNotEmpty() && !isEndOfDeck()) {
                 showingFront = !showingFront
-                updateFlashcard()
+                updateFlashcard(true) // use animation
             }
         }
 
-        btnNext.setOnClickListener { goToNextCard() }
+
+        btnNext.setOnClickListener {
+            goToNextCard(true)
+        }
 
         btnKnown.setOnClickListener {
             knownCards.add(currentIndex)
-            goToNextCard()
+            goToNextCard(true)
         }
+
 
         btnStudyAgainShuffle.setOnClickListener {
             flashcards = flashcards.shuffled()
             knownCards.clear()
             currentIndex = 0
             showingFront = true
+            isDeckComplete = false
             hasAdvanced = false
             updateFlashcard()
         }
@@ -148,9 +169,11 @@ class MainActivity : AppCompatActivity() {
             knownCards.clear()
             currentIndex = 0
             showingFront = true
+            isDeckComplete = false
             hasAdvanced = false
             updateFlashcard()
         }
+
 
         btnReverseQuiz.setOnClickListener {
             isReversedMode = true
@@ -158,9 +181,11 @@ class MainActivity : AppCompatActivity() {
             knownCards.clear()
             currentIndex = 0
             showingFront = true
+            isDeckComplete = false
             hasAdvanced = false
             updateFlashcard()
         }
+
 
         val deckName = sharedPrefs.getString("current_deck", null)
         deckName?.let {
@@ -223,71 +248,102 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun goToNextCard() {
-        if (flashcards.isEmpty()) return
-
-        // 1) If there are still cards _ahead_, advance and show it:
-        if (currentIndex < flashcards.size - 1) {
-            currentIndex++
-            showingFront = true
-            updateFlashcard()
-            return
-        }
-
-        // 2) Otherwise, you were on the final card and tapped Next → show complete UI:
-        val unknownLeft = flashcards.size - knownCards.size
-        tvCardTitle.text   = "Deck Complete"
-        tvFlashcard.text   = "🔔 Deck Complete!\nUnknown left: $unknownLeft"
-        updateCounts()
-        showEndButtons()
+    private fun getActiveFlashcardTextView(): TextView {
+        return if (useScrollMode) tvFlashcardScroll else tvFlashcardAuto
     }
 
-    private fun animateFlashcardFlip(newText: String) {
-        val scale = resources.displayMetrics.density
-        tvFlashcard.cameraDistance = 8000 * scale
+    private fun goToNextCard(animate: Boolean = false) {
+        if (flashcards.isNotEmpty() && currentIndex < flashcards.size - 1) {
+            currentIndex++
+            showingFront = true
+            updateFlashcard(animate)
+        } else {
+            // Show deck complete screen
+            isDeckComplete = true
+            val unknownLeft = flashcards.size - knownCards.size
+            tvCardTitle.text = "Deck Complete"
+            getActiveFlashcardTextView().text = "🔔 Deck Complete!\nUnknown left: $unknownLeft"
+            updateCounts()
+            showEndButtons()
+        }
+    }
 
-        val animatorOut = ObjectAnimator.ofFloat(tvFlashcard, "rotationY", 0f, 90f)
-        val animatorIn  = ObjectAnimator.ofFloat(tvFlashcard, "rotationY", -90f, 0f)
+
+    private fun animateFlashcardFlip(newText: String) {
+        val flashcardView = getActiveFlashcardTextView()
+        val scale = resources.displayMetrics.density
+        flashcardView.cameraDistance = 8000 * scale
+
+        val animatorOut = ObjectAnimator.ofFloat(flashcardView, "rotationY", 0f, 90f)
+        val animatorIn  = ObjectAnimator.ofFloat(flashcardView, "rotationY", -90f, 0f)
         animatorOut.duration = 150
         animatorIn.duration  = 150
 
         animatorOut.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
-                tvFlashcard.text = newText
+                flashcardView.text = newText
                 animatorIn.start()
             }
         })
         animatorOut.start()
     }
 
-    private fun updateFlashcard() {
+
+    private fun updateFlashcard(shouldAnimateFlip: Boolean = false) {
+        // 1) If we're in the "deck complete" state, do nothing.
+        if (isDeckComplete) return
+
+        // 2) Always update the Known/Unknown counts
         updateCounts()
+
+        // 3) If there's no deck at all, show the "no cards loaded" UI
         if (flashcards.isEmpty()) {
             tvCardTitle.text = ""
-            tvFlashcard.text = "No cards loaded."
+            if (useScrollMode) {
+                tvFlashcardScroll.text = getString(R.string.no_cards_loaded)
+                tvFlashcardScroll.visibility = View.VISIBLE
+                tvFlashcardAuto.visibility = View.GONE
+            } else {
+                tvFlashcardAuto.text = getString(R.string.no_cards_loaded)
+                tvFlashcardAuto.visibility = View.VISIBLE
+                tvFlashcardScroll.visibility = View.GONE
+            }
             showNormalButtons()
+            progressBar.progress = 0
             return
         }
 
-        // Always show the card text:
-        val card     = flashcards[currentIndex]
-        val front    = if (isReversedMode) card.back else card.front
-        val back     = if (isReversedMode) card.front else card.back
-        val newText  = if (showingFront) front else back
+        // 4) Otherwise, render the current card
+        val card  = flashcards[currentIndex]
+        val front = if (isReversedMode) card.back else card.front
+        val back  = if (isReversedMode) card.front else card.back
+        val newText = if (showingFront) front else back
 
-        animateFlashcardFlip(newText)
         tvCardTitle.text = "Card ${currentIndex + 1} / ${flashcards.size}"
         showNormalButtons()
-        tts.speak(newText, TextToSpeech.QUEUE_FLUSH, null, null)
 
-        if (flashcards.isNotEmpty() && !isEndOfDeck()) {
-            val progress = ((currentIndex + 1).toFloat() / flashcards.size * 100).toInt()
-            progressBar.progress = progress
+        // 5) Flip animation or straight‐draw
+        if (shouldAnimateFlip) {
+            animateFlashcardFlip(newText)
         } else {
-            progressBar.progress = 100
+            if (useScrollMode) {
+                tvFlashcardScroll.text = newText
+                tvFlashcardScroll.visibility = View.VISIBLE
+                tvFlashcardAuto.visibility = View.GONE
+            } else {
+                tvFlashcardAuto.text = newText
+                tvFlashcardAuto.visibility = View.VISIBLE
+                tvFlashcardScroll.visibility = View.GONE
+            }
         }
 
+        // 6) Speak and update progress
+        tts.speak(newText, TextToSpeech.QUEUE_FLUSH, null, null)
+        val percent = ((currentIndex + 1).toFloat() / flashcards.size * 100).toInt()
+        progressBar.progress = percent
     }
+
+
 
     private fun updateCounts() {
         val known   = knownCards.size
@@ -334,6 +390,30 @@ class MainActivity : AppCompatActivity() {
             .map { it.removePrefix("cards_json_") }
     }
 
+    private fun resetDeck() {
+        flashcards = listOf()
+        knownCards.clear()
+        currentIndex = 0
+        showingFront = true
+        isDeckComplete = false
+        tvCardTitle.text = ""
+        updateFlashcard()
+    }
+
+
+    private fun setupEndDeckButton() {
+        btnEndDeck.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("End Deck Early?")
+                .setMessage("Are you sure you want to end this deck? Your progress will be reset.")
+                .setPositiveButton("Yes") { _, _ ->
+                    showEndOfDeckScreen()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
     private fun applyThemeColors() {
         val isDark   = sharedPrefs.getBoolean("dark_mode", false)
         val bgColor  = if (isDark) Color.BLACK else Color.WHITE
@@ -341,7 +421,11 @@ class MainActivity : AppCompatActivity() {
         val btnTint  = if (isDark) Color.DKGRAY else Color.LTGRAY
 
         rootLayout.setBackgroundColor(bgColor)
-        tvFlashcard.setTextColor(fgColor)
+
+        // Set text color for both flashcard text views
+        tvFlashcardScroll.setTextColor(fgColor)
+        tvFlashcardAuto.setTextColor(fgColor)
+
         tvCardTitle.setTextColor(fgColor)
 
         listOf(
@@ -351,7 +435,9 @@ class MainActivity : AppCompatActivity() {
             btnNext,
             btnKnown,
             btnStudyAgainShuffle,
-            btnStudyRemaining
+            btnStudyRemaining,
+            btnReverseQuiz,
+            btnToggleTextMode
         ).forEach { btn ->
             btn.setTextColor(fgColor)
             btn.backgroundTintList = ColorStateList.valueOf(btnTint)
@@ -365,6 +451,19 @@ class MainActivity : AppCompatActivity() {
             .apply()
         applyThemeColors()
     }
+
+    private fun showEndOfDeckScreen() {
+        isDeckComplete = true
+        val unknownLeft = flashcards.size - knownCards.size
+        tvCardTitle.text = "Deck Complete"
+        getActiveFlashcardTextView().text =
+            "🔔 Deck Complete!\nUnknown left: $unknownLeft"
+        updateCounts()
+        showEndButtons()
+    }
+
+
+
 
     override fun onDestroy() {
         tts.stop()
