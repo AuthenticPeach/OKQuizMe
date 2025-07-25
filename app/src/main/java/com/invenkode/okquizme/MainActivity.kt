@@ -122,14 +122,14 @@ class MainActivity : AppCompatActivity() {
         tvFlashcardScroll.setOnClickListener {
             if (flashcards.isNotEmpty() && !isEndOfDeck()) {
                 showingFront = !showingFront
-                updateFlashcard()
+                updateFlashcard(true)
             }
         }
 
         tvFlashcardAuto.setOnClickListener {
             if (flashcards.isNotEmpty() && !isEndOfDeck()) {
                 showingFront = !showingFront
-                updateFlashcard()
+                updateFlashcard(true)
             }
         }
 
@@ -455,14 +455,12 @@ class MainActivity : AppCompatActivity() {
     private fun showEndOfDeckScreen() {
         isDeckComplete = true
         val unknownLeft = flashcards.size - knownCards.size
-        tvCardTitle.text = "Deck Complete"
+        tvCardTitle.text = getString(R.string.deck_complete)
         getActiveFlashcardTextView().text =
             "🔔 Deck Complete!\nUnknown left: $unknownLeft"
         updateCounts()
         showEndButtons()
     }
-
-
 
 
     override fun onDestroy() {
